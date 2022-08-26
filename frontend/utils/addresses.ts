@@ -1,7 +1,7 @@
 export const revenue_network = {
     network: "revenuetestnet",
     disclaimer:
-      "Faucet drips 0.5 F-BNB, 20000 F-RVC, 500 F-BUSD, and X LP-Tokens.",
+      "Faucet drips 0.5 F-BNB, 20000 F-RVC, 500 F-BUSD, and 500 LP-Tokens.",
     formattedName: "Revenue Testnet",
     autoconnect: {
       chainId: "0x133c3",
