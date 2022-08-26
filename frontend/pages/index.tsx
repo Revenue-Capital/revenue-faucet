@@ -1,21 +1,18 @@
 import axios from "axios"; // Requests
-import Image from "next/image"; // Image
 import { ethers } from "ethers"; // Address check
 import { toast } from "react-toastify"; // Toast notifications
 import Layout from "components/Layout"; // Layout wrapper
 import { useRouter } from "next/router"; // Router
 import styles from "styles/Home.module.scss"; // Styles
 import { ReactElement, useState } from "react"; // Local state + types
-import { getAddressDetails } from "utils/addresses"; // Faucet addresses
-import { hasClaimed } from "pages/api/claim/status"; // Claim status
-import { signIn, getSession, signOut } from "next-auth/client"; // Auth
+import { getNetworkDetails, getContractDetails } from "utils/addresses"; // Faucet addresses
 
 /**
- * Check if a provided address is valid
+ * Checks if a provider address is valid
  * @param {string} address to check
  * @returns {boolean} validity
  */
-function isValidAddress(address: string): boolean {
+export function isValidInput(address: string): boolean {
   try {
     // Check if address is valid + checksum match
     ethers.utils.getAddress(address);
@@ -23,33 +20,11 @@ function isValidAddress(address: string): boolean {
     // If not, return false
     return false;
   }
-
   // Else, return true
   return true;
 }
 
-/**
- * Checks if a provider address or ENS name is valid
- * @param {string} address to check
- * @returns {boolean} validity
- */
-export function isValidInput(address: string): boolean {
-  // Check if ENS name
-  if (~address.toLowerCase().indexOf(".eth")) {
-    return true;
-  }
-
-  // Else, check if valid general address
-  return isValidAddress(address);
-}
-
-export default function Home({
-  session,
-  claimed: initialClaimed,
-}: {
-  session: any;
-  claimed: boolean;
-}) {
+export default function Home() {
   // Collect prefilled address
   const {
     query: { addr },
@@ -59,17 +34,11 @@ export default function Home({
 
   // Claim address
   const [address, setAddress] = useState<string>(prefilledAddress);
-  // Claimed status
-  const [claimed, setClaimed] = useState<boolean>(initialClaimed);
-  // First claim
-  const [firstClaim, setFirstClaim] = useState<boolean>(false);
   // Loading status
   const [loading, setLoading] = useState<boolean>(false);
-  // Claim other
-  const [claimOther, setClaimOther] = useState<boolean>(false);
-
   // Collect details about addresses
-  const { networkCount, sortedAddresses } = getAddressDetails();
+  const network = getNetworkDetails();
+  const contracts = getContractDetails();
 
   /**
    * Processes a claim to the faucet
@@ -80,11 +49,9 @@ export default function Home({
 
     try {
       // Post new claim with recipient address
-      await axios.post("/api/claim/new", { address, others: claimOther });
+      await axios.post("/api/claim/new", { address, others: 0 });
       // Toast if success + toggle claimed
-      toast.success("Tokens dispersed—check balances shortly!");
-      setClaimed(true);
-      setFirstClaim(true);
+      toast.success("Tokens were sent, check balances shortly!");
     } catch (error: any) {
       // If error, toast error message
       toast.error(error.response.data.error);
@@ -98,24 +65,14 @@ export default function Home({
     <Layout>
       {/* CTA + description */}
       <div className={styles.home__cta}>
-        <div>
-          <a
-            href="https://paradigm.xyz"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image src="/logo.svg" height="42.88px" width="180px" />
-          </a>
-        </div>
-        <h1>Bootstrap your testnet wallet</h1>
+        <h1>Revenue Testnet Faucet</h1>
         <span>
           MultiFaucet funds a wallet with{" "}
-          <TokenLogo name="ETH" imageSrc="/tokens/eth.png" />
-          , <TokenLogo name="wETH" imageSrc="/tokens/weth.png" />,
-          <TokenLogo name="DAI" imageSrc="/tokens/dai.svg" />, and{" "}
-          <TokenLogo name="NFTs" imageSrc="/tokens/punks.png" /> across{" "}
-          {`${networkCount} `}
-          testnet networks, at once.
+          <TokenLogo name="F-BNB" imageSrc="/tokens/bnb.svg" />
+          , <TokenLogo name="F-RVC" imageSrc="/tokens/rvc.png" />,
+          <TokenLogo name="F-BUSD" imageSrc="/tokens/busd.svg" />, and{" "}
+          <TokenLogo name="F-Cake LP" imageSrc="/tokens/lp.webp" /> to use for
+          testing purpouses.
         </span>
       </div>
 
@@ -128,107 +85,34 @@ export default function Home({
 
         {/* Card content */}
         <div className={styles.home__card_content}>
-          {!session ? (
-            // If user is unauthenticated:
-            <div className={styles.content__unauthenticated}>
-              {/* Reasoning for Twitter OAuth */}
-              <p>
-                To prevent faucet botting, you must sign in with Twitter. We
-                request{" "}
-                <a
-                  href="https://developer.twitter.com/en/docs/apps/app-permissions"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  read-only
-                </a>{" "}
-                access.
-              </p>
+          <div className={styles.content__authenticated}>
+            {/* Claim description */}
+            <p>Enter your Ethereum address to receive tokens:</p>
 
-              {/* Sign in with Twitter */}
+            {/* Address input */}
+            <input
+              type="text"
+              placeholder="0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+
+            {isValidInput(address) ? (
+              // If address is valid, allow claiming
               <button
                 className={styles.button__main}
-                onClick={() => signIn("twitter")}
+                onClick={processClaim}
+                disabled={loading}
               >
-                Sign In with Twitter
+                {!loading ? "Claim" : "Claiming..."}
               </button>
-            </div>
-          ) : (
-            // If user is authenticated:
-            <div className={styles.content__authenticated}>
-              {claimed ? (
-                // If user has already claimed once in 24h
-                <div className={styles.content__claimed}>
-                  <p>
-                    {firstClaim
-                      ? "You have successfully claimed tokens. You can request again in 24 hours."
-                      : "You have already claimed tokens today. Please try again in 24 hours."}
-                  </p>
-
-                  <input
-                    type="text"
-                    placeholder="0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
-                    disabled
-                  />
-                  <button className={styles.button__main} disabled>
-                    Tokens Already Claimed
-                  </button>
-                </div>
-              ) : (
-                // If user has not claimed in 24h
-                <div className={styles.content__unclaimed}>
-                  {/* Claim description */}
-                  <p>Enter your Ethereum address to receive tokens:</p>
-
-                  {/* Address input */}
-                  <input
-                    type="text"
-                    placeholder="0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                  />
-
-                  {/* Other networks checkbox */}
-                  <div className={styles.content__unclaimed_others}>
-                    <input
-                      type="checkbox"
-                      value={claimOther.toString()}
-                      onChange={() => setClaimOther((previous) => !previous)}
-                    />
-                    <label>
-                      Drip on additional networks (besides Rinkeby, Ropsten,
-                      Kovan, and Görli)
-                    </label>
-                  </div>
-
-                  {isValidInput(address) ? (
-                    // If address is valid, allow claiming
-                    <button
-                      className={styles.button__main}
-                      onClick={processClaim}
-                      disabled={loading}
-                    >
-                      {!loading ? "Claim" : "Claiming..."}
-                    </button>
-                  ) : (
-                    // Else, force fix
-                    <button className={styles.button__main} disabled>
-                      {address === ""
-                        ? "Enter Valid Address"
-                        : "Invalid Address"}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* General among claimed or unclaimed, allow signing out */}
-              <div className={styles.content__twitter}>
-                <button onClick={() => signOut()}>
-                  Sign out @{session.twitter_handle}
-                </button>
-              </div>
-            </div>
-          )}
+            ) : (
+              // Else, force fix
+              <button className={styles.button__main} disabled>
+                {address === "" ? "Enter Valid Address" : "Invalid Address"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -239,83 +123,48 @@ export default function Home({
           <h3>Faucet Details</h3>
         </div>
 
-        {/* General information */}
-        <div>
+        {/* Network details */}
+        <div key={network.network}>
           <div className={styles.home__card_content_section}>
-            <h4>General Information</h4>
-            <p>
-              Your Twitter account must have at least 1 Tweet, 15 followers, and
-              be older than 1 month.
-            </p>
-            <p className={styles.home__card_content_section_lh}>
-              By default, the faucet drips on the Ethereum testnets (Rinkeby,
-              Ropsten, Kovan, Görli). You can choose to receive a drip on other
-              networks when requesting tokens.
-            </p>
-            <p>You can claim from the faucet once every 24 hours.</p>
+            {/* Network name */}
+            <h4>
+              {network.formattedName}
+              <span>
+                {" "}
+                <AddNetworkButton autoconnect={network.autoconnect} />
+              </span>
+            </h4>
+
+            {/* Optional network disclaimer */}
+            {network.disclaimer ? <span>{network.disclaimer}</span> : null}
+
+            {Object.entries(network.addresses).map(([name, address]) => {
+              // For each network address
+              return (
+                // Address description: address
+                <p key={name}>
+                  {name}: <TokenAddress name={name} address={address} />
+                </p>
+              );
+            })}
           </div>
         </div>
 
-        {/* Network details */}
-        {sortedAddresses.map((network) => {
-          // For each network
-          return (
-            <div key={network.network}>
-              <div className={styles.home__card_content_section}>
-                {/* Network name */}
-                <h4>
-                  {network.formattedName}
-                  {network.connectionDetails ? (
-                    <span>
-                      {" "}
-                      (
-                      <a
-                        href={network.connectionDetails}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        connection details
-                      </a>
-                      ,
-                      {network.autoconnect ? (
-                        // Display network add button if non-default network
-                        <AddNetworkButton autoconnect={network.autoconnect} />
-                      ) : null}
-                      )
-                    </span>
-                  ) : null}
-
-                  {/* Optional depleted status */}
-                  {network.depleted ? (
-                    <span className={styles.home__card_depleted}>
-                      {" "}
-                      (maintenance mode)
-                    </span>
-                  ) : null}
-                </h4>
-
-                {/* Optional network disclaimer */}
-                {network.disclaimer ? <span>{network.disclaimer}</span> : null}
-
-                {Object.entries(network.addresses).map(([name, address]) => {
-                  // For each network address
-                  return (
-                    // Address description: address
-                    <p key={name}>
-                      {name}:{" "}
-                      <TokenAddress
-                        etherscanPrefix={network.etherscanPrefix}
-                        name={name}
-                        address={address}
-                        ERC20={name != "NFTs"}
-                      />
-                    </p>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+        {/* Contract information */}
+        <div>
+          <div className={styles.home__card_content_section}>
+            <h4>Deployed Contracts List</h4>
+            {Object.entries(contracts).map(([name, address]) => {
+              // For each network address
+              return (
+                // Address description: address
+                <p key={name}>
+                  {name}: <ContractAddress name={name} address={address} />
+                </p>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </Layout>
   );
@@ -347,22 +196,16 @@ function AddNetworkButton({ autoconnect }: { autoconnect: any }): ReactElement {
 
 /**
  * Returns token address component
- * @param {string} etherscanPrefix of address
  * @param {string?} name if displaying MM connect
  * @param {string} address to display
- * @param {string} ERC20 if asset is an ERC20
  * @returns {ReactElement}
  */
 function TokenAddress({
-  etherscanPrefix,
   name,
   address,
-  ERC20,
 }: {
-  etherscanPrefix: string;
   name?: string;
   address: string;
-  ERC20: boolean;
 }): ReactElement {
   /**
    * Adds token to MetaMask
@@ -384,14 +227,28 @@ function TokenAddress({
 
   return (
     <span className={styles.address}>
-      <a
-        href={`https://${etherscanPrefix}/address/${address}`}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {ethers.utils.getAddress(address)}
-      </a>
-      {ERC20 ? <button onClick={addToMetaMask}>Add to MetaMask</button> : null}
+      <a>{ethers.utils.getAddress(address)}</a>
+      <button onClick={addToMetaMask}>Add to MetaMask</button>
+    </span>
+  );
+}
+
+/**
+ * Returns contarct address component
+ * @param {string?} name if displaying MM connect
+ * @param {string} address to display
+ * @returns {ReactElement}
+ */
+function ContractAddress({
+  name,
+  address,
+}: {
+  name?: string;
+  address: string;
+}): ReactElement {
+  return (
+    <span className={styles.address}>
+      <a>{ethers.utils.getAddress(address)}</a>
     </span>
   );
 }
@@ -415,17 +272,4 @@ function TokenLogo({
       <span>{name}</span>
     </div>
   );
-}
-
-export async function getServerSideProps(context: any) {
-  // Collect session
-  const session: any = await getSession(context);
-
-  return {
-    props: {
-      session,
-      // If session exists, collect claim status, else return false
-      claimed: session ? await hasClaimed(session.twitter_id) : false,
-    },
-  };
 }
