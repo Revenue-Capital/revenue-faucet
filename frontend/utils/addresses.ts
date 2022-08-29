@@ -1,7 +1,8 @@
+// Export faucet addresses
 export const revenue_network = {
     network: "revenuetestnet",
     disclaimer:
-      "Faucet drips 0.5 F-BNB, 20000 F-RVC, 500 F-BUSD, and 500 LP-Tokens.",
+      "Faucet drips 0.5 F-BNB, 20000 F-RVC, 500 F-BUSD, and 500 F-Cake LP.",
     formattedName: "Revenue Testnet",
     autoconnect: {
       chainId: "0x133c3",
@@ -37,7 +38,7 @@ export const revenue_contracts = {
     "Voting Selection Governor": "0xC4c5AeAcb4C8d69A357989Ad82146FF1Ad7a395B",
     "Backlog 1": "0x08d56f9C1e53EEa361efBDCc348D9E73Be8fDF86",
     "Backlog 2": "0xd34328e41884944E91d273d2Eaffc7302d14b471",
-    "Voting Valut": "0x07dB4358794ddC6f2BE4cF59Ea31d163EbF190FB",
+    "Voting Vault": "0x07dB4358794ddC6f2BE4cF59Ea31d163EbF190FB",
 }
 
 /**
